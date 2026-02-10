@@ -44,20 +44,20 @@ def parse_cover_letter(msg):
     """자소서 메시지에서 각 항목 파싱"""
     data = {}
     
-    # 각 항목 파싱
+    # 각 항목 파싱 (더 유연한 패턴)
     patterns = {
-        'nickname_age_location': r'💟닉네임/나이/상세지역\s*[-:]\s*(.+)',
-        'mbti_height': r'💟MBTI/키\s*[-:]\s*(.+)',
-        'married_children': r'💟기미돌/자녀\s*[-:]\s*(.+)',
-        'ideal_type': r'💟썸상형\s*[-:]\s*(.+)',
-        'charm_point': r'💟나의 매력 포인트\s*[-:]\s*(.+)',
-        'day_night': r'💟낮프밤프\s*[-:]\s*(.+)',
-        'mobility': r'💟기동성[^-:]*[-:]\s*(.+)',
-        'join_date': r'💥입방날짜\s*[:]\s*(.+)'
+        'nickname_age_location': r'💟닉네임/나이/(?:상세)?지역\s*[-:–]\s*(.+)',
+        'mbti_height': r'💟MBTI/키\s*[-:–]\s*(.+)',
+        'married_children': r'💟기미돌/자녀\s*[-:–]\s*(.+)',
+        'ideal_type': r'💟썸상형\s*[-:–]\s*(.+)',
+        'charm_point': r'💟나의\s*매력\s*포인트\s*[-:–]\s*(.+)',
+        'day_night': r'💟낮프밤프\s*[-:–]\s*(.+)',
+        'mobility': r'💟기동성[^-:–]*[-:–]\s*(.+)',
+        'join_date': r'💥입방날짜\s*[:：]\s*(.+)'
     }
     
     for key, pattern in patterns.items():
-        match = re.search(pattern, msg)
+        match = re.search(pattern, msg, re.IGNORECASE)
         if match:
             # 값 추출 및 정리 (다음 줄이나 이모지 전까지)
             value = match.group(1).strip()
@@ -99,16 +99,23 @@ def save_cover_letter(chat: ChatContext):
         # 자소서 파싱
         parsed_data = parse_cover_letter(msg)
         
+        # 디버깅: 파싱된 데이터 출력
+        print(f"[DEBUG] 파싱된 데이터 - 유저: {user_name}")
+        for key, value in parsed_data.items():
+            print(f"  {key}: '{value}' (비어있음: {not value.strip()})")
+        
         # 빈 항목 확인
         empty_fields = [FIELD_LABELS[key] for key, value in parsed_data.items() if not value.strip()]
         
         # 전부 비어있으면 아무 멘트 없이 무시
         if len(empty_fields) == len(FIELD_LABELS):
+            print(f"[DEBUG] 모든 항목이 비어있어 무시됨")
             return
         
         # 일부 비어있으면 어떤 항목인지 알려주고 저장 거부
         if empty_fields:
             missing = ', '.join(empty_fields)
+            print(f"[DEBUG] 비어있는 항목: {missing}")
             chat.reply(f"아래 항목이 비어있어요! 채우고 다시 보내주세요 🥲\n\n📋 {missing}")
             return
         
@@ -139,6 +146,7 @@ def save_cover_letter(chat: ChatContext):
         conn.close()
         
         chat.reply(f"{chat.sender.name} 님의 자소서가 등록되었습니다!")
+        print(f"[INFO] 자소서 저장 완료 - 유저: {user_name}")
     except Exception as e:
         print(f"[ERROR] 자소서 저장 실패 - 유저: {chat.sender.name}, 오류: {e}")
         import traceback
@@ -183,17 +191,17 @@ def show_cover_letter(chat: ChatContext):
         conn.close()
         
         if result:
-            # 자소서 포맷팅
+            # 자소서 포맷팅 (들여쓰기 제거)
             response = f"""🦋자소서🦋
-                           💟닉네임/나이/상세지역- {result[0]}
-                           💟MBTI/키- {result[1]}
-                           💟기미돌/자녀 - {result[2]}
-                           💟썸상형 - {result[3]}
-                           💟나의 매력 포인트 - {result[4]}
-                           💟낮프밤프- {result[5]}
-                           💟기동성(이동할수있는)- {result[6]}
-                           💥입방날짜: {result[7]}
-                           🔆지우지말고 복붙"""
+💟닉네임/나이/상세지역- {result[0]}
+💟MBTI/키- {result[1]}
+💟기미돌/자녀 - {result[2]}
+💟썸상형 - {result[3]}
+💟나의 매력 포인트 - {result[4]}
+💟낮프밤프- {result[5]}
+💟기동성(이동할수있는)- {result[6]}
+💥입방날짜: {result[7]}
+🔆지우지말고 복붙"""
             
             chat.reply(response)
         else:
